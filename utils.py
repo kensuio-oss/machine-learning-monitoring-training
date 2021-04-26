@@ -451,8 +451,7 @@ def extract_data_stats(logfile, ds_name):
         if key in ds_dict:
             ds_schema_name[ds_dict[key]['name']]=el
             schema_ds[el] = ds_dict[key]
-    print(ds_schema_name)
-    print(ds_name)
+    
             
     pk = ds_schema_name[ds_name]
     
