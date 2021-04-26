@@ -1,0 +1,3 @@
+pandas
+kensu
+pickle == 4.0
