@@ -3,3 +3,4 @@ numpy
 kensu
 seaborn
 matplotlib
+sklearn == 0.24.1
