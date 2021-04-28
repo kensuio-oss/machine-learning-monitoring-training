@@ -9,13 +9,13 @@ This github repository is presented in the O'reilly x Kensu topic.
 
 Clone the repo: $ git clone https://github.com/kensuio/machine-learning-monitoring-training.git
 
-In a python environment, run `pip install -r requirements.txt`
+In a python environment with jupyter, run `pip install -r requirements.txt`
 
 In the working direcory, run `jupyter notebook`
 
 ## Overview
 
-The repo contains materials related to the cource `Monitoring Machine Learning Models in Python` offered by O'Reilly and Kensu.
+The repo contains materials related to the class of `Monitoring Machine Learning Models in Python` offered by O'Reilly and Kensu.
 
 ## Contacts
 
