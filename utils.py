@@ -521,6 +521,55 @@ class SLO(object):
         else:
             self.rules['stats'].append(stat_name + ' must be in range ' + str([min,max]))
 
-        
+def kensu_client_init():
+    import ipywidgets as widgets
+    api_url = widgets.Text(
+        value='',
+        placeholder='Type the ingestion URL',
+        description='API:',
+        disabled=False
+    )
+    display(api_url)
+
+
+
+    token = widgets.Password(
+        value='',
+        placeholder='Enter token',
+        description='Token:',
+        disabled=False
+    )
+    display(token)
+
+    project = widgets.Text(
+        value='',
+        placeholder='Type a project name',
+        description='Project:',
+        disabled=False
+    )
+    display(project)
+
+
+    def initialization_kensu(button):
+        from kensu.utils.kensu_provider import KensuProvider
+        kensu = KensuProvider().initKensu(api_url=api_url.value,
+                                          auth_token=token.value,
+                                          process_name='demo-monitoring-rules-online',
+                                            user_name='Sammy', 
+                                            code_location='https://gitlab.example.com', 
+                                            init_context=True, 
+                                            project_names=[project.value], 
+                                            environment="Production",
+                                            report_to_file=False,logical_naming='File')
+
+        print('Kensu Initialization done')
+
+    button = widgets.Button(
+        description='Click to initialize',
+        disabled=False,
+        button_style='', # 'success', 'info', 'warning', 'danger' or ''
+        tooltip='Click me' )
+    button.on_click(initialization_kensu)
+    display(button)
     
     
