@@ -43,6 +43,10 @@ def data_prep(data):
     return data_final
 
 
+from kensu.client.models import *
+
+
+
 def create_observability_report(logfilename,pdfname,SL = None):
     import numpy as np
     import pandas as pd
@@ -74,6 +78,8 @@ def create_observability_report(logfilename,pdfname,SL = None):
     CODE_VERSION = []
     PROJECT = []
     STATS =[]
+    METRICS = []
+    MODEL = []
     for element in data:
         if element['entity'] == 'PROCESS_LINEAGE':
             LINEAGES.append(element['jsonPayload'])
@@ -93,6 +99,11 @@ def create_observability_report(logfilename,pdfname,SL = None):
             PROJECT.append(element['jsonPayload'])
         if element['entity']=='DATA_STATS':
             STATS.append(element['jsonPayload'])
+        if element['entity']=='MODEL_METRICS':
+            METRICS.append(element['jsonPayload'])
+        if element['entity']=='MODEL':
+            MODEL.append(element['jsonPayload'])
+            
 
 
     ds_dict={}
@@ -267,11 +278,85 @@ def create_observability_report(logfilename,pdfname,SL = None):
         elems.append(Paragraph("<br/> \
                                <br/>Data Source Schema:",styleN))
         elems.append(schema_table)
+        
+        if stats !=[]:
 
+            elems.append(Paragraph("<br/> \
+                                    Data Source Stats:",styleN))
+            for stat in stats:
+                elems.append(stat)
+    if MODEL != []:
+        elems.append(PageBreak())
+        elems.append(Paragraph("Model Summary",styleH2))
+        mod = MODEL[0]
+        elems.append(Paragraph('<br/> Model Method: '+mod["pk"]["name"],styleH3))
+        
+        met_dict = METRICS[0]
+        
+        metric = met_dict['metrics']
+        columns = {}
+        value = []
+        
+        for el in metric:
+            s=metric[el]
+            meta_name = el.split('.')[0]
+
+            if meta_name not in columns:
+                columns[meta_name]=[]
+            try:    
+                name = el.split('.')[1]
+            except:
+                name = meta_name
+
+            columns[meta_name].append({name:s})
+        aio=[]
+        for i in columns:
+            p=[]
+            e=[]
+            l=[]
+            for vf in columns[i]:
+                p.append(i) if i not in p else p.append('')
+                e.append(list(vf.keys())[0])
+                l.append(round(vf[list(vf.keys())[0]],2))
+            aio.append([p,e,l])
+        metrics_dict =aio
+    
+        
+        met_table = ([Table(e,colWidths='*',style=style) for e in metrics_dict])
+        
         elems.append(Paragraph("<br/> \
-                                Data Source Stats:",styleN))
-        for stat in stats:
-            elems.append(stat)
+                                    Model Metrics:",styleN))
+        for met in met_table:
+            elems.append(met)
+            
+        elems.append(Paragraph("<br/> \
+                                    Model Hyper Parameters:",styleN))
+        
+        import json
+            
+        hyper = json.loads(met_dict['hyperParamsAsJson'])
+        
+        list_hyper = [[key,hyper[key]] for key in hyper]
+        
+        
+        hyper_table = Table(list_hyper,colWidths='*')
+        #hyper_table.setStyle(style)
+
+        rowNumb = len(list_hyper)
+        for i in range(0,rowNumb):
+            if i % 2 ==0:
+                bc = colors.burlywood
+            else:
+                bc = colors.beige
+            ts = TableStyle([
+                ('BACKGROUND', (0,i), (-1,i),bc)
+            ]
+            )
+            hyper_table.setStyle(ts)
+        
+        elems.append(hyper_table)
+        
+        
             
     if SL:
         elems.append(PageBreak())
@@ -331,6 +416,90 @@ def create_observability_report(logfilename,pdfname,SL = None):
     pdf.build(elems)
     os.remove('lin.png')
     
+
+def extract_metrics(logfile, ds_name):
+    from kensu.utils.kensu_provider import KensuProvider
+    from kensu.utils.injection import Injection
+    Injection().kensu_inject_entities('api')
+    kensu = KensuProvider()
+    data=[]
+    import json
+    import pandas as pd
+    with open(logfile) as f:
+        for line in f:
+            data.append(json.loads(line))
+
+
+    df= pd.DataFrame(columns=['Schema','Column','FromSchema','FromColumn'])
+
+    LINEAGES = []
+    DS = []
+    SCHEMAS = []
+    PROCESS = []
+    RUN = []
+    CODE_BASE =[]
+    CODE_VERSION = []
+    PROJECT = []
+    METRICS =[]
+    for element in data:
+        if element['entity'] == 'PROCESS_LINEAGE':
+            LINEAGES.append(element['jsonPayload'])
+        if element['entity'] == 'DATA_SOURCE':
+            DS.append(element['jsonPayload'])
+        if element['entity'] == 'SCHEMA':
+            SCHEMAS.append(element['jsonPayload'])
+        if element['entity']=='PROCESS' :
+            PROCESS.append(element['jsonPayload'])
+        if element['entity']=='PROCESS_RUN':
+            RUN.append(element['jsonPayload'])
+        if element['entity']=='CODE_BASE':
+            CODE_BASE.append(element['jsonPayload'])
+        if element['entity']=='CODE_VERSION':
+            CODE_VERSION.append(element['jsonPayload'])
+        if element['entity']=='PROJECT':
+            PROJECT.append(element['jsonPayload'])
+        if element['entity']=='MODEL_METRICS':
+            METRICS.append(element['jsonPayload'])
+            
+    ds_dict={}
+    for e in DS:
+        v=DataSource(name=e['name'],pk=DataSourcePK(location=e['pk']['location'], 
+                                                    physical_location_ref=PhysicalLocationRef(by_guid=e['pk']['physicalLocationRef']['byGUID'])))
+
+        ds_dict[v.to_guid()]=e   
+    
+    Ds_names = [i['name'] for i in DS]
+    
+
+
+    schema_dict = {}
+
+    for e in SCHEMAS:
+        s=Schema(name=e['name'],
+               pk=SchemaPK(fields=[FieldDef(v['name'],v['fieldType'],v['nullable']) for v in e['pk']['fields']],
+                               data_source_ref=DataSourceRef(by_guid=e['pk']['dataSourceRef']['byGUID'])))
+        schema_dict[s.to_guid()]=e
+
+    ds_schema_name = {}
+    schema_ds = {}
+    for el in schema_dict:
+        key = (schema_dict[el]['pk']['dataSourceRef']['byGUID'])
+        if key in ds_dict:
+            ds_schema_name[ds_dict[key]['name']]=el
+            schema_ds[el] = ds_dict[key]
+    
+            
+    pk = ds_schema_name[ds_name]
+    
+    schema_metrics = {}
+    for e in METRICS:
+        metrics=  [e['metrics'],e['hyperParamsAsJson']]
+        schema = e['pk']['storedInSchemaRef']['byGUID']
+        schema_metrics[schema]=metrics
+   
+    metric = schema_metrics[pk]
+    return metric
+
 
 
 def extract_data_sources(logfile):
